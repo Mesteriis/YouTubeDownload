@@ -1,9 +1,9 @@
 [Settings]
 defplaylist = https://www.youtube.com/playlist?list=FLhJ4IOQrs63Y5_Rx5aqolZw
 pathtonasdir = 
-namedirlibrary = res/YouTubeDownloads/
-defaultvideodir = res/YouTubeDownloads/Video/
-defaultmp3dir = res/YouTubeDownloads/MP3/
+namedirlibrary = Library/YouTubeDownloads/
+defaultvideodir = Library/YouTubeDownloads/Video/
+defaultmp3dir = Library/YouTubeDownloads/Audio/
 
 [Settings_DB_File]
 path = res/item.dby
@@ -13,6 +13,7 @@ sep = #
 none = None
 
 [Downland_Settings]
-defaultformatvideo = MP4
+defaultformatvideo = video/mp4
 defaultformatmp3 = 320
+checkbeforedownloading = 0
 
