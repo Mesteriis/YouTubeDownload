@@ -1,12 +1,23 @@
+import progressbar
+
 try:
     import configparser
 except ImportError:
     import ConfigParser as configparser
 from component import itemDownloads
+from colorsConsoleTextUTF8 import colorText
 from pytube import Playlist, YouTube
+# import general
+# import oauth2client
 from datetime import datetime
+# import datetime
+
 import os
 import requests
+
+
+
+
 
 class ytd:
     ShowDocumentation = True
@@ -187,6 +198,7 @@ class ytd:
         if not _items['AUDIO'] and  not _items['VIDEO']:
             print('Then another time... Bye-bye')
             return
+
         time =str(round(len(self.listForDownloads)*300/1024)) + ' Gb'
 
         print (
@@ -196,42 +208,23 @@ class ytd:
         input('letSStart?')
         print('And I would start anyway %-)')
         print(self.titleRequestWork, 'Download, you can pet the cat %-)...')
+        print(len(self.listForDownloads))
         # 'downloads list item'
-        # for indexList in self.listForDownloads:
-            # if self.config.get ( 'Downland_Settings', 'checkBeforeDownloading' ) == '1':
-            #     print ( 'Verification URL:', indexList, end=' ' )
-            #     if self.checkUrlToItem ( indexList ):
-            #         item = itemDownloads.itemYouTube \
-            #             ( indexList, self.config.get('Settings', 'nameDirLibrary'), self.addItemsToBase ( self.config.get ( 'Settings_DB_File', 'path' )))
-            #         print ( item.title )
-            #         item.downloadItem ( self.config.get ( 'Settings', 'defaultVideoDir' ),
-            #                             self.config.get ( 'Settings', 'defaultMP3Dir' ) )
-            # else:
-            #     print ( self.config.get ( 'Settings_DB_File', 'path' ) ) TODO del
-        tmpList = self.listForDownloads.video_urls
-        errorList = list()
-        count = 0
-        while len(tmpList) > 0:
-            tmp = tmpList.pop()
-            try:
-                item = itemDownloads.itemYouTube ( tmp, '', self.addItemsToBase )
-                item.downloadItem (self.config.get('Settings', 'defaultVideoDir'), self.config.get('Settings', 'defaultMP3Dir'), _items )
-                print('residuum (', len(tmpList), end= ')  ')
-                del item
-            except:
-                print("\u001b[31mBlock or what is the error on the youtube side, skip\u001b[39m")
-                errorList.append(tmp)
-                continue
-        print('Errors {} :'.format(len(errorList)))
-        for el in errorList:
-            print('\t -',el)
-        answer = input ( 'Try again? (y/n): ' )
-        if answer == 'y':
-            pass
+        for indexList in self.listForDownloads:
+            if self.config.get ( 'Downland_Settings', 'checkBeforeDownloading' ) == '1':
+                print ( 'Verification URL:', indexList, end=' ' )
+                if self.checkUrlToItem ( indexList ):
+                    item = itemDownloads.itemYouTube \
+                        ( indexList, self.config.get('Settings', 'nameDirLibrary'), self.addItemsToBase ( self.config.get ( 'Settings_DB_File', 'path' )))
+                    print ( item.title )
+                    item.downloadItem ( self.config.get ( 'Settings', 'defaultVideoDir' ),
+                                        self.config.get ( 'Settings', 'defaultMP3Dir' ) )
+            else:
+                print ( self.config.get ( 'Settings_DB_File', 'path' ) )
 
-
-
-
+                item = itemDownloads.itemYouTube ( indexList, '', self.addItemsToBase )
+                print ( item.title )
+                item.downloadItem (self.config.get('Settings', 'defaultVideoDir'), self.config.get('Settings', 'defaultMP3Dir') )
 
 
     def tryFindItemInDB(self, item_urlToItem):
@@ -254,10 +247,11 @@ class ytd:
             return False
 
 
-# y = ytd()
-# y.readBD()
-# y.listVideos()
 
-f = YouTube('https://www.youtube.com/watch?v=D6-qZUX7DfY')
-f.streams.get_highest_resolution().download()
+y = ytd()
+y.readBD()
+y.listVideos()
+
+
+
 # https://www.youtube.com/watch?v=D6-qZUX7DfY    скачать потом

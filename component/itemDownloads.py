@@ -1,5 +1,7 @@
 import progressbar
 import pytube
+from colorsConsoleTextUTF8 import colorText
+from component import cli_grafiks
 
 class itemYouTube:
     url = str
@@ -49,7 +51,6 @@ class itemYouTube:
 
     def downloadItem(self, pathToSaveVideo = None, pathToSaveAudio = None, _items=None):
         # print('pathToSaveVideo ' , pathToSaveVideo, '\n', 'pathToSaveAudio ', pathToSaveAudio )
-        print(self.title)
         if _items is None:
             _items = dict ( {'VIDEO': False, 'AUDIO': True} )
         if _items['VIDEO']:
@@ -57,7 +58,7 @@ class itemYouTube:
         else:
             print(self.titleVideoBar, 'Download video strangled!')
         if _items['AUDIO']:
-            self.audio.download(pathToSaveAudio)
+            self.audio.download(pathToSaveAudio, filename=None, filename_prefix=None , skip_existing= False)
         else:
             print (self.titleAudioBar, 'Download audio strangled!' )
 
@@ -86,10 +87,6 @@ class itemYouTube:
             print(self.cb_done)
 
 def getTitle(urlToYT):
-    try:
-        answen = {pytube.YouTube(urlToYT).title,
-                    pytube.YouTube(urlToYT).streams.get_highest_resolution().filesize,
-                    pytube.YouTube ( urlToYT ).streams.get_audio_only().filesize}
-    except:
-        answen = None
-    return answen
+    return {pytube.YouTube(urlToYT).title,
+            pytube.YouTube(urlToYT).streams.get_highest_resolution().filesize,
+            pytube.YouTube ( urlToYT ).streams.get_audio_only().filesize}
