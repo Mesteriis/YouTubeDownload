@@ -1,19 +1,12 @@
-import progressbar
-
 try:
     import configparser
 except ImportError:
     import ConfigParser as configparser
 from component import itemDownloads
-from pytube import Playlist
-# import general
-# import oauth2client
-# import httplib2
-
+from pytube import Playlist, YouTube
+from datetime import datetime
 import os
 import requests
-def callBack(string):
-    print ( "CallBack " + string )
 
 class ytd:
     ShowDocumentation = True
@@ -31,14 +24,17 @@ class ytd:
         'Referer': 'http://mail.ru/',
         'remember': 1,
     }
-    VideoList = list
-    VideoListAll = list
+    VideoList = list()
+    VideoListAll = list()
     previouslyProcessedSheet = dict()
 
-
-
+    dictIntoDataBase = dict ()
     playListYouTube = Playlist
-    #
+    listForDownloads = list()
+
+    titleRequestWork = '\u001b[34mRequest\u001b[39m'
+
+
     def defaultSettings(self, fileSettings = 'res/settings.plist'):
         """
         We configure the work and create the settings file and environment, to change the settings, change the file
@@ -50,11 +46,11 @@ class ytd:
         self.config.add_section ( "Settings" )
         self.config.set ( 'Settings', 'defPLAYLIST', 'https://www.youtube.com/playlist?list=FLhJ4IOQrs63Y5_Rx5aqolZw')
         self.config.set ( 'Settings', 'pathToNASDir', '' )
-        self.config.set ( 'Settings', 'nameDirLibrary', 'res/YouTubeDownloads/' )
+        self.config.set ( 'Settings', 'nameDirLibrary', 'Library/YouTubeDownloads/' )
         self.config.set ( 'Settings', 'defaultVideoDir', '{}{}Video/'
                             .format(self.config.get('Settings', 'pathToNASDir'),
                                     self.config.get('Settings', 'nameDirLibrary')) )
-        self.config.set ( 'Settings', 'defaultMP3Dir', '{}{}MP3/'
+        self.config.set ( 'Settings', 'defaultMP3Dir', '{}{}Audio/'
                           .format(self.config.get('Settings', 'pathToNASDir'),
                                   self.config.get('Settings', 'nameDirLibrary')) )
         self.config.add_section ( "Settings_DB_File" )
@@ -65,6 +61,7 @@ class ytd:
         self.config.add_section ( "Downland_Settings" )
         self.config.set ( 'Downland_Settings', 'defaultFormatVideo', 'video/mp4' )
         self.config.set ( 'Downland_Settings', 'defaultFormatMP3', '320')
+        self.config.set ( 'Downland_Settings', 'checkBeforeDownloading', '0' )
         config_file = open ( self.fileSettings, "w" )
         self.config.write (config_file)
 
@@ -77,17 +74,19 @@ class ytd:
 
     def prepareEnvironment(self):
         self.defaultSettings ()
+        if not os.path.exists ( 'Library' ):
+            os.mkdir ( 'Library' )
         os.mkdir ( self.config.get('Settings', 'nameDirLibrary') )
         os.mkdir ( self.config.get('Settings', 'defaultVideoDir') )
         os.mkdir ( self.config.get('Settings', 'defaultMP3Dir') )
         self.readSettings()
 
     def __init__(self, urlVideo = None, urlPl = None):
-        # print('init')
         if not os.path.exists('res'):
             os.mkdir ( 'res' )
             self.isFirstStart = False
-
+        if not os.path.exists('Library'):
+            os.mkdir ( 'Library' )
         self.config = configparser.ConfigParser()
         if not os.path.exists ( self.fileSettings ):
             self.prepareEnvironment()
@@ -97,24 +96,30 @@ class ytd:
     def readBD(self):
         if not os.path.exists(self.config.get('Settings_DB_File', 'path') ):
             f = open(self.config.get('Settings_DB_File', 'path') ,'w')
-            f.write('test#1\ntest2#0')
+            f.write('-Created By {}'.format(datetime.now()) + '\n-url # title \n')
             f.close()
 
         with open ( self.config.get('Settings_DB_File', 'path') ) as f:
             content = f.read()
         try:
             lines = content.split ( '\n' )
+            # line = url # title
             for line in lines:
+                if line[0] == '-':
+                    continue
                 sepIndex = line.rfind('#')
-                self.previouslyProcessedSheet.update({line[:sepIndex]:line[sepIndex+1:]}) # отсортировать true false
+                self.dictIntoDataBase.update({line[:sepIndex]:line[sepIndex+1:]}) # отсортировать true false
         except:
             print('database file signature not recognized')
 
-    def addItemsToBase(self, nameItem, statusItem = 1):
-        self.previouslyProcessedSheet.update ( {nameItem: statusItem} )
+    def addItemsToBase(self, urlToItem = None, title = None):
+        if urlToItem is None or title is None:
+            return
+        self.previouslyProcessedSheet.update ( {urlToItem: title} )
+        f = open ( self.config.get ( 'Settings_DB_File', 'path' ), 'a' )
+        f.write(urlToItem + self.config.get('Settings_DB_File', 'sep') + title + '\n')
+        f.close()
 
-    def markItemDownloadComplite(self, nameItem):
-        self.previouslyProcessedSheet.update ( {nameItem: 1} )
 
     def syncDB(self):
         f = open ( self.config.get ( 'Settings_DB_File', 'path' ), 'r' )
@@ -139,71 +144,120 @@ class ytd:
             print ( 'DB sync Done! Items in data base {}'.format ( len ( line ) ) )
         self.forcedNeedSyncDataBase = False
 
-    def __str__(self):
-        return "YouTube Video and Audio downloads\n" + self.__doc__
-
-    def __repr__(self):
-        return "YouTube Video and Audio downloads\n" + self.__doc__
-
     def listVideos(self):
+        print (self.titleRequestWork, "Create a video sheet to upload... " )
         self.playListYouTube = Playlist(self.config.get('Settings', 'defPLAYLIST'))
-        for indexList in self.playListYouTube:
-            print ('Проверка:', indexList, end = ' ')
-            if self.checkUrlToItem(indexList):
-                item = itemDownloads.itemYouTube(indexList,'')
-                print ( item.title, end=' ')
-                # with progressbar.ProgressBar ( max_value=10 ) as bar: подумать процесс бар
-                #         bar.update ( i )
-                item.downloadItem()
-            # self.youtube = pytube.YouTube(indexList)
+        time = round(len( self.playListYouTube)*20/60/60)
+        time = str(time) + ' hour'
+        answer = input( "Found {} video, get the title? (this operation may take a long time, \n"
+                      "but the local base will be taken into account( {} elements ), this may take {} ) ( y/n ): "
+                      .format( len( self.playListYouTube ) , len( self.dictIntoDataBase ),time ))
+        # answer = 'n' # TODO del
+        if answer == 'y' or answer == 'н':
+            for indexList in self.playListYouTube:
+                if self.dictIntoDataBase.get(indexList):
 
-    def checkUrlToItem(self,url):
-        if not url:
+                    print(self.dictIntoDataBase.get(indexList))
+                else:
+                    titleItem =  itemDownloads.getTitle ( indexList )
+                    self.listForDownloads.append(indexList)
+
+        elif answer == 'n' or answer == 'n':
+            print ( 'Putting together a download list...' )
+            self.listForDownloads = self.playListYouTube
+            # for indexList in self.playListYouTube:
+            #     self.listForDownloads.append ( indexList )
+            # break #TODO del
+        # answer = 'y'  # TODO del
+        answer = input('Prepared to load {} items, upload? (y/n): '.format(len(self.listForDownloads)))
+        if answer == 'y' or answer == 'н':
+            self.downloadBySheet()
+
+    def downloadBySheet(self):
+        _items = dict ( {'VIDEO': False, 'AUDIO': False} )
+        answer = input( 'Will we download the video? (y/n): ' )
+        if answer == 'y':
+            _items['VIDEO'] = True
+            print ( "I’ll then put the video in {}".format ( self.config.get ( 'Settings', 'defaultVideoDir' ) ) )
+        answer = input ( 'And the music? (y/n): ' )
+        if answer == 'y':
+            print ( "And the music will be in {}".format ( self.config.get ( 'Settings', 'defaultMP3Dir' ) ) )
+            _items['AUDIO'] = True
+
+        if not _items['AUDIO'] and  not _items['VIDEO']:
+            print('Then another time... Bye-bye')
+            return
+        time =str(round(len(self.listForDownloads)*300/1024)) + ' Gb'
+
+        print (
+            "Ok, about {} need to be loaded, we’ll download the last one, it’s about {}".format (
+                len ( self.listForDownloads ),
+                time ) )
+        input('letSStart?')
+        print('And I would start anyway %-)')
+        print(self.titleRequestWork, 'Download, you can pet the cat %-)...')
+        # 'downloads list item'
+        # for indexList in self.listForDownloads:
+            # if self.config.get ( 'Downland_Settings', 'checkBeforeDownloading' ) == '1':
+            #     print ( 'Verification URL:', indexList, end=' ' )
+            #     if self.checkUrlToItem ( indexList ):
+            #         item = itemDownloads.itemYouTube \
+            #             ( indexList, self.config.get('Settings', 'nameDirLibrary'), self.addItemsToBase ( self.config.get ( 'Settings_DB_File', 'path' )))
+            #         print ( item.title )
+            #         item.downloadItem ( self.config.get ( 'Settings', 'defaultVideoDir' ),
+            #                             self.config.get ( 'Settings', 'defaultMP3Dir' ) )
+            # else:
+            #     print ( self.config.get ( 'Settings_DB_File', 'path' ) ) TODO del
+        tmpList = self.listForDownloads.video_urls
+        errorList = list()
+        count = 0
+        while len(tmpList) > 0:
+            tmp = tmpList.pop()
+            try:
+                item = itemDownloads.itemYouTube ( tmp, '', self.addItemsToBase )
+                item.downloadItem (self.config.get('Settings', 'defaultVideoDir'), self.config.get('Settings', 'defaultMP3Dir'), _items )
+                print('residuum (', len(tmpList), end= ')  ')
+                del item
+            except:
+                print("\u001b[31mBlock or what is the error on the youtube side, skip\u001b[39m")
+                errorList.append(tmp)
+                continue
+        print('Errors {} :'.format(len(errorList)))
+        for el in errorList:
+            print('\t -',el)
+        answer = input ( 'Try again? (y/n): ' )
+        if answer == 'y':
+            pass
+
+
+
+
+
+
+    def tryFindItemInDB(self, item_urlToItem):
+        if self.dictIntoDataBase.get( item_urlToItem ):
+            return True
+        else:
             return False
 
+    def checkUrlToItem(self,url):
+        responds = None
+        if not url:
+            return False
         else:
             try:
                 responds = requests.get(url)
-            except:
+            except : #TODO handle all exceptions
                 print ('Something went wrong, the link is not available')
             if responds.status_code == 200:
                 return True
             return False
 
-    def dddd(self):
-        print( " d ")
 
-
-
-
-
-# ytd('-q \'ds\' w e r t y u', '213123')
-y = ytd()
-y.listVideos()
-
-
+# y = ytd()
+# y.readBD()
 # y.listVideos()
-# print(y.previouslyProcessedSheet)
-# from os import path
-# _PLAYLIST = Playlist("https://www.youtube.com/playlist?list=FLhJ4IOQrs63Y5_Rx5aqolZw")
 
-
-url = "https://www.youtube.com/watch?v=iP5JQq3eUJ8&list=FLhJ4IOQrs63Y5_Rx5aqolZw&index=2&t=0s"
-
-# f= itemDownloads.itemYouTube( url, callBack )
-# f.downloadItem()
-
-# response = requests.get(url)
-# print(response.content)
-
-# print(playlist.title)
-# i = 1
-# yt = None
-# for el in playlist:
-    # print (i,el)
-    # yt = YouTube(el)
-    # print(yt.title)
-    # break
-        # i+=1
-
+f = YouTube('https://www.youtube.com/watch?v=D6-qZUX7DfY')
+f.streams.get_highest_resolution().download()
 # https://www.youtube.com/watch?v=D6-qZUX7DfY    скачать потом
